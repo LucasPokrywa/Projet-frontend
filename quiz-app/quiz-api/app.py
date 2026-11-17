@@ -7,7 +7,9 @@ from jwt_utils import JWToken
 
 from pathlib import Path
 
-from questions import QuestionRepository, question_from_json, question_to_json
+from models.questions import QuestionRepository
+from models.possible_answers import PossibleAnswerRepository
+from models.participation import ParticipationRepository
 
 from routes import create_routes
 
@@ -15,9 +17,20 @@ app = Flask(__name__)
 CORS(app)
 jwt_service = JWToken()
 
-repository = QuestionRepository(Path(__file__).with_name("database"))
+database_path = Path(__file__).with_name("database")
 
-app.register_blueprint(create_routes(repository, jwt_service))
+repository = QuestionRepository(database_path)
+answer_repository = PossibleAnswerRepository(database_path)
+participation_repository = ParticipationRepository(database_path)
+
+app.register_blueprint(
+    create_routes(
+        repository,
+        answer_repository,
+        participation_repository,
+        jwt_service,
+    )
+)
 
 if __name__ == "__main__":
     app.run()

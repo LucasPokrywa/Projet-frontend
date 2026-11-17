@@ -17,7 +17,6 @@ def question_from_json(data):
         title=data["title"],
         text=data["text"],
         image=data["image"],
-        possibleAnswers=data["possibleAnswers"],
     )
 
 
@@ -27,7 +26,6 @@ def question_to_json(question):
         "title": question.title,
         "text": question.text,
         "image": question.image,
-        "possibleAnswers": question.possibleAnswers,
     }
 
 
@@ -40,10 +38,10 @@ class QuestionRepository:
             with connection:
                 cursor = connection.execute(
                     """
-                    INSERT INTO Question (position, title, text, image, possibleAnswers)
+                    INSERT INTO questions (position, title, text, image)
                     VALUES (?, ?, ?, ?, ?)
                     """,
-                    (question.position, question.title, question.text, question.image, json.dumps(question.possibleAnswers, ensure_ascii=False),),
+                    (question.position, question.title, question.text, question.image,),
                 )
                 question_id = cursor.lastrowid
 
@@ -53,7 +51,7 @@ class QuestionRepository:
         with closing(sqlite3.connect(self.path)) as connection:
             connection.row_factory = sqlite3.Row
             row = connection.execute(
-                "SELECT * FROM Question WHERE id = ?",
+                "SELECT * FROM questions WHERE id = ?",
                 (question_id,),
             ).fetchone()
 
@@ -61,5 +59,7 @@ class QuestionRepository:
             return None
         
         question = dict(row)
-        question["possibleAnswers"] = json.loads(question["possibleAnswers"])
         return question
+
+    
+    
