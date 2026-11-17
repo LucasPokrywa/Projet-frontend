@@ -121,3 +121,36 @@ class QuestionRepository:
                 )
 
         return True
+
+    def update(self, question_id, question, answers):
+        with closing(sqlite3.connect(self.path)) as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+
+            with connection:
+                cursor = connection.execute(
+                    """
+                    UPDATE questions
+                    SET title = ?, text = ?, image = ?
+                    WHERE id = ?
+                    """,
+                    (question.title, question.text, question.image, question_id),
+                )
+
+                if cursor.rowcount == 0:
+                    return False
+    
+                connection.execute(
+                    "DELETE FROM possible_answers WHERE question_id = ?",
+                    (question_id,),
+                )
+
+                for answer in answers:
+                    connection.execute(
+                        """
+                        INSERT INTO possible_answers (question_id, text, is_correct)
+                        VALUES (?, ?, ?)
+                        """,
+                        (question_id, answer.text, int(answer.is_correct)),
+                    )
+
+        return True

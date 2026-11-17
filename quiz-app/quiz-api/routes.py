@@ -101,5 +101,30 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
 
         return {"id": question_id, "possibleAnswers": updated_answers}, 200
 
-    
+    ### PUT 
+
+    @app.route("/questions/<int:question_id>", methods=["PUT"])
+    def update_question(question_id):
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"error": "Un objet JSON est attendu"}, 400
+
+        try:
+            question = question_from_json(data)
+            answers = [
+                possible_answer_from_json(item, question_id)
+                for item in data["possibleAnswers"]
+            ]
+        except KeyError as exc:
+            return {"error": f"Champ manquant : {exc.args[0]}"}, 400
+
+        updated = repository.update(question_id, question, answers)
+
+        if not updated:
+            return {"error": "Question introuvable"}, 404
+
+        return "", 204
+
+
     return app
