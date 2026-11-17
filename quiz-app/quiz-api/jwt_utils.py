@@ -2,7 +2,8 @@ import jwt
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
-
+from functools import wraps
+from flask import request
 
 load_dotenv()
 
@@ -42,3 +43,20 @@ class JWToken:
             algorithms=[self.ALGORITHM],
             options={"require": ["data", "iat", "exp"]},
         )
+
+    def required(self, function):
+        @wraps(function)
+        def wrapper(*args, **kwargs):
+            parts = request.headers.get("Authorization", "").split()
+
+            if len(parts) != 2 or parts[0].lower() != "bearer":
+                return {"error": "Token manquant"}, 401
+
+            try:
+                self.decode(parts[1])
+            except jwt.InvalidTokenError:
+                return {"error": "Token invalide ou expiré"}, 401
+
+            return function(*args, **kwargs)
+
+        return wrapper

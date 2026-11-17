@@ -65,6 +65,7 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
         return {"size": 0, "credentials": [user, hashed_pass], "token": token}, 200
 
     @app.route("/questions", methods=["POST"])
+    @jwt_service.required
     def post_question():
         data = request.get_json(silent=True)
 
@@ -130,6 +131,7 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
 
 
     @app.route("/rebuild-db", methods=["POST"])
+    @jwt_service.required
     def rebuild_db():
         sql = Path(__file__).with_name("database.sql").read_text(
             encoding="utf-8"
@@ -144,6 +146,7 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
     ### PUT 
 
     @app.route("/questions/<int:question_id>", methods=["PUT"])
+    @jwt_service.required
     def update_question(question_id):
         data = request.get_json(silent=True)
 
@@ -169,6 +172,7 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
     ### DELETE
 
     @app.route("/questions/<int:question_id>", methods=["DELETE"])
+    @jwt_service.required
     def delete_question(question_id):
         deleted = repository.delete(question_id)
 
@@ -179,12 +183,14 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
 
 
     @app.route("/questions/all", methods=["DELETE"])
+    @jwt_service.required
     def delete_all_questions():
         repository.delete_all()
         return "", 204
 
 
     @app.route("/participations/all", methods=["DELETE"])
+    @jwt_service.required
     def delete_all_participants():
         participation_repository.delete_all()
         return "", 204
