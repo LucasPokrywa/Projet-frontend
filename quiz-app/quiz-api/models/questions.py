@@ -206,3 +206,11 @@ class QuestionRepository:
             with connection:
                 connection.execute("DELETE FROM possible_answers")
                 connection.execute("DELETE FROM questions")
+
+
+    
+    def count(self):
+        with closing(sqlite3.connect(self.path)) as connection:
+            return connection.execute(
+                "SELECT COUNT(*) FROM questions"
+            ).fetchone()[0]

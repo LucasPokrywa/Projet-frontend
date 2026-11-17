@@ -45,3 +45,60 @@ class ParticipationRepository:
 
         participation.id = participation_id
         return participation_id
+
+    def delete_all(self):
+        with closing(sqlite3.connect(self.path)) as connection:
+            with connection:
+                connection.execute("DELETE FROM participation")
+
+    def calculate_score(self, answers):
+        with closing(sqlite3.connect(self.path)) as connection:
+            connection.execute("BEGIN")
+
+            questions = connection.execute(
+                "SELECT id FROM questions ORDER BY position"
+            ).fetchall()
+
+            if len(answers) != len(questions):
+                raise ValueError(
+                    f"{len(questions)} réponses attendues, {len(answers)} reçues"
+                )
+
+            score = 0
+
+            for (question_id,), choice_number in zip(questions, answers):
+                choices = connection.execute(
+                    """
+                    SELECT is_correct FROM possible_answers
+                    WHERE question_id = ?
+                    ORDER BY id
+                    """,
+                    (question_id,),
+                ).fetchall()
+
+                if (
+                    type(choice_number) is not int
+                    or not 1 <= choice_number <= len(choices)
+                ):
+                    raise ValueError(
+                        f"Choix invalide pour la question {question_id}"
+                    )
+
+                if choices[choice_number - 1][0] == 1:
+                    score += 1
+
+        return score
+    
+
+    def get_scores(self):
+        with closing(sqlite3.connect(self.path)) as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(
+                """
+                SELECT player_name AS playerName, score
+                FROM participation
+                ORDER BY score DESC, id ASC
+                """
+            ).fetchall()
+
+        return [dict(row) for row in rows]

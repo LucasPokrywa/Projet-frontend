@@ -4,6 +4,9 @@ from models.questions import *
 from models.possible_answers import *
 from models.participation import *
 
+import sqlite3
+from contextlib import closing
+from pathlib import Path
 
 from hash import HashGen
 
@@ -18,8 +21,11 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
         return "Bienvenue sur l'api quiz"
 
     @app.route('/quiz-info', methods=['GET'])
-    def GetQuizInfo():
-        return {"size": 0, "scores": []}, 200
+    def get_quiz_info():
+        return {
+            "size": repository.count(),
+            "scores": participation_repository.get_scores(),
+        }, 200
 
     @app.route('/questions/<int:question_id>', methods=['GET'])
     def get_quiz_by_id(question_id):
@@ -101,6 +107,40 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
 
         return {"id": question_id, "possibleAnswers": updated_answers}, 200
 
+    @app.route("/participations", methods=["POST"])
+    def post_participation():
+        data = request.get_json(silent=True)
+
+        if (
+            not isinstance(data, dict)
+            or not isinstance(data.get("playerName"), str)
+            or not isinstance(data.get("answers"), list)
+        ):
+            return {"error": "playerName et answers sont obligatoires"}, 400
+
+        try:
+            score = participation_repository.calculate_score(data["answers"])
+        except ValueError as error:
+            return {"error": str(error)}, 400
+
+        participation = Participation(data["playerName"], score)
+        participation_repository.insert(participation)
+
+        return {"playerName": data["playerName"], "score": score}, 200
+
+
+    @app.route("/rebuild-db", methods=["POST"])
+    def rebuild_db():
+        sql = Path(__file__).with_name("database.sql").read_text(
+            encoding="utf-8"
+        )
+
+        with closing(sqlite3.connect(repository.path)) as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.executescript(sql)
+
+        return "Ok", 200
+    
     ### PUT 
 
     @app.route("/questions/<int:question_id>", methods=["PUT"])
@@ -143,4 +183,11 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
         repository.delete_all()
         return "", 204
 
+
+    @app.route("/participations/all", methods=["DELETE"])
+    def delete_all_participants():
+        participation_repository.delete_all()
+        return "", 204
+
+    
     return app
