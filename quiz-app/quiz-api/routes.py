@@ -58,9 +58,14 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
 
         question_id = repository.insert(question)
 
+        for answer_data in data["possibleAnswers"]:
+            answer = possible_answer_from_json(answer_data,question_id=question_id,)
+            answer_repository.insert(question_id, answer)
+
+
         response = question_to_json(question)
         response["id"] = question_id
-        return response, 201
+        return response, 200
 
 
     @app.route("/questions/<int:question_id>/answers", methods=["POST"])
