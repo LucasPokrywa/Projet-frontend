@@ -30,6 +30,20 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
 
         return question, 200
 
+    @app.route('/questions', methods=['GET'])
+    def get_quiz_by_position():
+        position = request.args.get("position", type=int)
+
+        if position is None or position < 1:
+            return {"error": "Une position entière positive est attendue"}, 400
+
+        question = repository.get_by_position(position)
+
+        if question is None:
+            return {"error": "Question introuvable"}, 404
+
+        return question, 200
+    
 
     ### POST 
     @app.route("/login", methods=["POST"])

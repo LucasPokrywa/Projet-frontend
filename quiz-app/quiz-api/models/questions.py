@@ -78,6 +78,20 @@ class QuestionRepository:
         question = dict(row)
         return question
 
+    def get_by_position(self, position):
+            with closing(sqlite3.connect(self.path)) as connection:
+                connection.row_factory = sqlite3.Row
+                row = connection.execute(
+                    "SELECT * FROM questions WHERE position = ?",
+                    (position,),
+                ).fetchone()
+    
+            if row is None:
+                return None
+            
+            question = dict(row)
+            return question
+    
 
     def delete(self, question_id):
         with closing(sqlite3.connect(self.path)) as connection:
