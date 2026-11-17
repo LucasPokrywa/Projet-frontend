@@ -138,7 +138,7 @@ class QuestionRepository:
 
                 if cursor.rowcount == 0:
                     return False
-    
+
                 connection.execute(
                     "DELETE FROM possible_answers WHERE question_id = ?",
                     (question_id,),
@@ -154,3 +154,55 @@ class QuestionRepository:
                     )
 
         return True
+
+    def delete(self, question_id):
+        with closing(sqlite3.connect(self.path)) as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+
+            with connection:
+                connection.execute("BEGIN IMMEDIATE")
+
+                row = connection.execute(
+                    "SELECT position FROM questions WHERE id = ?",
+                    (question_id,),
+                ).fetchone()
+
+                if row is None:
+                    return False
+
+                position = row[0]
+
+                connection.execute(
+                    "DELETE FROM possible_answers WHERE question_id = ?",
+                    (question_id,),
+                )
+                connection.execute(
+                    "DELETE FROM questions WHERE id = ?",
+                    (question_id,),
+                )
+
+                following_questions = connection.execute(
+                    """
+                    SELECT id FROM questions
+                    WHERE position > ?
+                    ORDER BY position ASC
+                    """,
+                    (position,),
+                ).fetchall()
+
+                for (following_id,) in following_questions:
+                    connection.execute(
+                        "UPDATE questions SET position = position - 1 WHERE id = ?",
+                        (following_id,),
+                    )
+
+        return True
+
+
+    def delete_all(self):
+        with closing(sqlite3.connect(self.path)) as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+
+            with connection:
+                connection.execute("DELETE FROM possible_answers")
+                connection.execute("DELETE FROM questions")

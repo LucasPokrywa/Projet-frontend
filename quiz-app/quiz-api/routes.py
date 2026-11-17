@@ -126,5 +126,21 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
 
         return "", 204
 
+    ### DELETE
+
+    @app.route("/questions/<int:question_id>", methods=["DELETE"])
+    def delete_question(question_id):
+        deleted = repository.delete(question_id)
+
+        if not deleted:
+            return {"error": "Question introuvable"}, 404
+
+        return "", 204
+
+
+    @app.route("/questions/all", methods=["DELETE"])
+    def delete_all_questions():
+        repository.delete_all()
+        return "", 204
 
     return app
