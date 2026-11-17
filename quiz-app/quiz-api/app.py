@@ -17,7 +17,6 @@ jwt_service = JWToken()
 
 repository = QuestionRepository(Path(__file__).with_name("database"))
 
-repository = QuestionRepository(Path(__file__).with_name("database"))
 app.register_blueprint(create_routes(repository, jwt_service))
 
 if __name__ == "__main__":

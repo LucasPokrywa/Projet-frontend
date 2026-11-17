@@ -17,6 +17,15 @@ def create_routes(repository, jwt_service):
     def GetQuizInfo():
         return {"size": 0, "scores": []}, 200
 
+    @app.route('/questions/<int:question_id>', methods=['GET'])
+    def get_quiz_by_id(question_id):
+        question = repository.get_byid(question_id)
+
+        if question is None:
+            return {"error": "Question introuvable"}, 404
+
+        return question, 200
+
 
     ### POST 
     @app.route("/login", methods=["POST"])
@@ -31,9 +40,10 @@ def create_routes(repository, jwt_service):
 
         return {"size": 0, "credentials": [user, hashed_pass], "token": token}, 200
 
-    @app.route("/question", methods=["POST"])
+    @app.route("/questions", methods=["POST"])
     def post_question():
         data = request.get_json(silent=True)
+
 
         if not isinstance(data, dict):
             return {"error": "Un objet JSON est attendu"}, 400
