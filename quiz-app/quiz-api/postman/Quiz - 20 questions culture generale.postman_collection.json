@@ -1,0 +1,1495 @@
+{
+  "info": {
+    "name": "Quiz — 20 questions de culture générale",
+    "description": "Configurer baseUrl et adminPassword, puis lancer la collection entière dans l'ordre avec le Collection Runner. Le dossier 01 effectue le login et réinitialise la base, ce qui supprime les questions et les participations existantes. Le dossier 02 insère 20 questions de culture générale avec quatre choix chacune. Le dossier 03 enregistre Alice avec 20 bonnes réponses sur 20 et Bob avec 6 bonnes réponses sur 20. Chaque joueur envoie 20 numéros de choix, à partir de 1. La dernière requête vérifie size=20, les deux participations, leurs scores et leur classement décroissant.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:5000",
+      "type": "string"
+    },
+    {
+      "key": "adminPassword",
+      "value": "",
+      "type": "string",
+      "description": "Mot de passe administrateur de votre API. À renseigner localement."
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string",
+      "description": "JWT renseigné automatiquement après le login."
+    }
+  ],
+  "item": [
+    {
+      "name": "01 — Connexion et réinitialisation",
+      "description": "Obtient le JWT puis supprime les données existantes avec POST /rebuild-db.",
+      "item": [
+        {
+          "name": "00 — Connexion administrateur",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.unset(\"token\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Connexion réussie avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    pm.test(\"Un JWT est renvoyé\", function () {",
+                  "        pm.expect(data.token).to.be.a(\"string\").and.not.empty;",
+                  "    });",
+                  "    if (typeof data.token === \"string\" && data.token.length > 0) {",
+                  "        pm.collectionVariables.set(\"token\", data.token);",
+                  "    } else {",
+                  "        pm.execution.setNextRequest(null);",
+                  "    }",
+                  "} else {",
+                  "    pm.execution.setNextRequest(null);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Réinitialiser la base",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/rebuild-db",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rebuild-db"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"La réinitialisation renvoie 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Le corps contient exactement Ok\", function () {",
+                  "    pm.expect(pm.response.text()).to.equal(\"Ok\");",
+                  "});",
+                  "if (pm.response.code !== 200 || pm.response.text() !== \"Ok\") {",
+                  "    pm.execution.setNextRequest(null);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 — Insérer les 20 questions",
+      "description": "Crée les questions aux positions 1 à 20, avec quatre choix et une bonne réponse chacune.",
+      "item": [
+        {
+          "name": "01 — Géographie — Quelle est la capitale du Canada ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 1,\n  \"title\": \"Géographie\",\n  \"text\": \"Quelle est la capitale du Canada ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"Toronto\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Ottawa\",\n      \"isCorrect\": true\n    },\n    {\n      \"text\": \"Montréal\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Vancouver\",\n      \"isCorrect\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId01\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "02 — Sciences — Quelle planète est surnommée la planète rouge ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 2,\n  \"title\": \"Sciences\",\n  \"text\": \"Quelle planète est surnommée la planète rouge ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"Vénus\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Jupiter\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Mars\",\n      \"isCorrect\": true\n    },\n    {\n      \"text\": \"Mercure\",\n      \"isCorrect\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId02\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03 — Littérature — Qui a écrit Les Misérables ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 3,\n  \"title\": \"Littérature\",\n  \"text\": \"Qui a écrit Les Misérables ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"Émile Zola\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Gustave Flaubert\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Albert Camus\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Victor Hugo\",\n      \"isCorrect\": true\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId03\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "04 — Histoire — En quelle année a eu lieu la prise de la Bastille ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 4,\n  \"title\": \"Histoire\",\n  \"text\": \"En quelle année a eu lieu la prise de la Bastille ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"1789\",\n      \"isCorrect\": true\n    },\n    {\n      \"text\": \"1815\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"1848\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"1914\",\n      \"isCorrect\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId04\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "05 — Chimie — Quel est le symbole chimique de l'or ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 5,\n  \"title\": \"Chimie\",\n  \"text\": \"Quel est le symbole chimique de l'or ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"Ag\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Fe\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Au\",\n      \"isCorrect\": true\n    },\n    {\n      \"text\": \"Cu\",\n      \"isCorrect\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId05\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "06 — Arts — Qui a peint La Joconde ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 6,\n  \"title\": \"Arts\",\n  \"text\": \"Qui a peint La Joconde ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"Claude Monet\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Léonard de Vinci\",\n      \"isCorrect\": true\n    },\n    {\n      \"text\": \"Pablo Picasso\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Vincent van Gogh\",\n      \"isCorrect\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId06\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "07 — Géographie — Quel est le plus grand océan du monde ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 7,\n  \"title\": \"Géographie\",\n  \"text\": \"Quel est le plus grand océan du monde ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"L'océan Atlantique\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"L'océan Indien\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"L'océan Arctique\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"L'océan Pacifique\",\n      \"isCorrect\": true\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId07\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "08 — Nature — Quel est le plus grand mammifère vivant ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 8,\n  \"title\": \"Nature\",\n  \"text\": \"Quel est le plus grand mammifère vivant ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"La baleine bleue\",\n      \"isCorrect\": true\n    },\n    {\n      \"text\": \"L'éléphant d'Afrique\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Le requin-baleine\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"La girafe\",\n      \"isCorrect\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId08\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "09 — Mathématiques — Combien de côtés possède un hexagone ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 9,\n  \"title\": \"Mathématiques\",\n  \"text\": \"Combien de côtés possède un hexagone ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"Cinq\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Huit\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Six\",\n      \"isCorrect\": true\n    },\n    {\n      \"text\": \"Sept\",\n      \"isCorrect\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId09\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10 — Langues — Quelle est la langue officielle du Brésil ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 10,\n  \"title\": \"Langues\",\n  \"text\": \"Quelle est la langue officielle du Brésil ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"L'espagnol\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Le français\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"L'anglais\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Le portugais\",\n      \"isCorrect\": true\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId10\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11 — Astronomie — Quelle étoile se trouve au centre du Système solaire ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 11,\n  \"title\": \"Astronomie\",\n  \"text\": \"Quelle étoile se trouve au centre du Système solaire ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"Sirius\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Le Soleil\",\n      \"isCorrect\": true\n    },\n    {\n      \"text\": \"Véga\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"L'étoile Polaire\",\n      \"isCorrect\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId11\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12 — Sport — Combien d'anneaux composent le symbole olympique ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 12,\n  \"title\": \"Sport\",\n  \"text\": \"Combien d'anneaux composent le symbole olympique ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"Cinq\",\n      \"isCorrect\": true\n    },\n    {\n      \"text\": \"Quatre\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Six\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Sept\",\n      \"isCorrect\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId12\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13 — Histoire — En quelle année les premiers humains ont-ils marché sur la Lune ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 13,\n  \"title\": \"Histoire\",\n  \"text\": \"En quelle année les premiers humains ont-ils marché sur la Lune ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"1957\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"1961\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"1969\",\n      \"isCorrect\": true\n    },\n    {\n      \"text\": \"1972\",\n      \"isCorrect\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId13\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "14 — Géographie — Quelle est la capitale de l'Australie ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 14,\n  \"title\": \"Géographie\",\n  \"text\": \"Quelle est la capitale de l'Australie ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"Sydney\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Melbourne\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Perth\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Canberra\",\n      \"isCorrect\": true\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId14\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "15 — Biologie — Quel organe pompe le sang dans le corps humain ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 15,\n  \"title\": \"Biologie\",\n  \"text\": \"Quel organe pompe le sang dans le corps humain ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"Le foie\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Le cœur\",\n      \"isCorrect\": true\n    },\n    {\n      \"text\": \"Le poumon\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"L'estomac\",\n      \"isCorrect\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId15\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16 — Musique — Quel instrument possède habituellement 88 touches ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 16,\n  \"title\": \"Musique\",\n  \"text\": \"Quel instrument possède habituellement 88 touches ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"Le piano\",\n      \"isCorrect\": true\n    },\n    {\n      \"text\": \"La guitare\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Le violon\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"La flûte\",\n      \"isCorrect\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId16\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "17 — Physique — À quelle température l'eau pure gèle-t-elle à la pression atmosphérique normale ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 17,\n  \"title\": \"Physique\",\n  \"text\": \"À quelle température l'eau pure gèle-t-elle à la pression atmosphérique normale ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"100 °C\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"10 °C\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"0 °C\",\n      \"isCorrect\": true\n    },\n    {\n      \"text\": \"−20 °C\",\n      \"isCorrect\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId17\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "18 — Géographie — Dans quel pays se trouvent les pyramides de Gizeh ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 18,\n  \"title\": \"Géographie\",\n  \"text\": \"Dans quel pays se trouvent les pyramides de Gizeh ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"Le Maroc\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"La Grèce\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Le Mexique\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"L'Égypte\",\n      \"isCorrect\": true\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId18\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "19 — Littérature — Qui a écrit Le Petit Prince ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 19,\n  \"title\": \"Littérature\",\n  \"text\": \"Qui a écrit Le Petit Prince ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"Jules Verne\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Antoine de Saint-Exupéry\",\n      \"isCorrect\": true\n    },\n    {\n      \"text\": \"Marcel Pagnol\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"Jean de La Fontaine\",\n      \"isCorrect\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId19\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "20 — Sciences — Quelle est la formule chimique de l'eau ?",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": 20,\n  \"title\": \"Sciences\",\n  \"text\": \"Quelle est la formule chimique de l'eau ?\",\n  \"image\": \"\",\n  \"possibleAnswers\": [\n    {\n      \"text\": \"H₂O\",\n      \"isCorrect\": true\n    },\n    {\n      \"text\": \"CO₂\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"O₂\",\n      \"isCorrect\": false\n    },\n    {\n      \"text\": \"NaCl\",\n      \"isCorrect\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "questions"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Question créée avec le statut 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    const sent = JSON.parse(pm.request.body.raw);",
+                  "    pm.test(\"Identifiant entier positif renvoyé\", function () {",
+                  "        pm.expect(data.id).to.be.a(\"number\");",
+                  "        pm.expect(Number.isInteger(data.id)).to.equal(true);",
+                  "        pm.expect(data.id).to.be.above(0);",
+                  "    });",
+                  "    pm.test(\"Les champs de la question correspondent à la requête\", function () {",
+                  "        [\"position\", \"title\", \"text\", \"image\"].forEach(function (field) {",
+                  "            pm.expect(data[field]).to.deep.equal(sent[field]);",
+                  "        });",
+                  "    });",
+                  "    pm.collectionVariables.set(\"questionId20\", data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 — Participations",
+      "description": "Alice répond correctement aux 20 questions. Bob répond correctement aux six premières et se trompe aux quatorze suivantes.",
+      "item": [
+        {
+          "name": "Alice — 20/20",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/participations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "participations"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"playerName\": \"Alice\",\n  \"answers\": [\n    2,\n    3,\n    4,\n    1,\n    3,\n    2,\n    4,\n    1,\n    3,\n    4,\n    2,\n    1,\n    3,\n    4,\n    2,\n    1,\n    3,\n    4,\n    2,\n    1\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"La participation renvoie 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    pm.test(\"Le joueur et son score sont corrects (20/20)\", function () {",
+                  "        pm.expect(data.playerName).to.equal(\"Alice\");",
+                  "        pm.expect(data.score).to.equal(20);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bob — 6/20",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/participations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "participations"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"playerName\": \"Bob\",\n  \"answers\": [\n    2,\n    3,\n    4,\n    1,\n    3,\n    2,\n    1,\n    2,\n    4,\n    1,\n    3,\n    2,\n    4,\n    1,\n    3,\n    2,\n    4,\n    1,\n    3,\n    2\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"La participation renvoie 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    pm.test(\"Le joueur et son score sont corrects (6/20)\", function () {",
+                  "        pm.expect(data.playerName).to.equal(\"Bob\");",
+                  "        pm.expect(data.score).to.equal(6);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 — Vérifier le quiz et le classement",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/quiz-info",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "quiz-info"
+          ]
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Les informations du quiz renvoient 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "if (pm.response.code === 200) {",
+              "    const data = pm.response.json();",
+              "    pm.test(\"Le quiz contient exactement 20 questions\", function () {",
+              "        pm.expect(data.size).to.equal(20);",
+              "    });",
+              "    pm.test(\"Deux participations sont enregistrées\", function () {",
+              "        pm.expect(data.scores).to.be.an(\"array\").with.lengthOf(2);",
+              "    });",
+              "    pm.test(\"Le classement contient Alice à 20/20 puis Bob à 6/20\", function () {",
+              "        pm.expect(data.scores).to.deep.equal([",
+              "            {playerName: \"Alice\", score: 20},",
+              "            {playerName: \"Bob\", score: 6}",
+              "        ]);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
