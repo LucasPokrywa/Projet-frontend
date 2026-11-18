@@ -29,6 +29,23 @@ class PossibleAnswerRepository:
     def __init__(self, path):
         self.path = path
 
+    def get_by_question_id(self, question_id):
+        with closing(sqlite3.connect(self.path)) as connection:
+            rows = connection.execute(
+                """
+                SELECT question_id, text, is_correct
+                FROM possible_answers
+                WHERE question_id = ?
+                ORDER BY id
+                """,
+                (question_id,),
+            ).fetchall()
+
+        return [
+            PossibleAnswer(question_id=row[0], text=row[1], is_correct=bool(row[2]))
+            for row in rows
+        ]
+
     def insert(self, question_id, answer):
         with closing(sqlite3.connect(self.path)) as connection:
             connection.execute("PRAGMA foreign_keys = ON")

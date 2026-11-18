@@ -127,17 +127,80 @@ class QuestionRepository:
             connection.execute("PRAGMA foreign_keys = ON")
 
             with connection:
-                cursor = connection.execute(
+                connection.execute("BEGIN IMMEDIATE")
+
+                row = connection.execute(
+                    "SELECT position FROM questions WHERE id = ?",
+                    (question_id,),
+                ).fetchone()
+
+                if row is None:
+                    return False
+
+                old_position = row[0]
+                new_position = question.position
+
+                max_position = connection.execute(
+                    "SELECT MAX(position) FROM questions"
+                ).fetchone()[0]
+
+                if (
+                    type(new_position) is not int
+                    or not 1 <= new_position <= max_position
+                ):
+                    raise ValueError(
+                        f"La position doit être entre 1 et {max_position}"
+                    )
+
+                if new_position != old_position:
+                    # Libère temporairement la position actuelle.
+                    connection.execute(
+                        "UPDATE questions SET position = ? WHERE id = ?",
+                        (max_position + 1, question_id),
+                    )
+
+                    questions_to_shift = connection.execute(
+                        """
+                        SELECT id FROM questions
+                        WHERE position BETWEEN ? AND ?
+                        ORDER BY position ASC
+                        """,
+                        (
+                            min(old_position, new_position),
+                            max(old_position, new_position),
+                        ),
+                    ).fetchall()
+
+                    offset = -1
+
+                    if new_position < old_position:
+                        questions_to_shift.reverse()
+                        offset = 1
+
+                    for (other_id,) in questions_to_shift:
+                        connection.execute(
+                            """
+                            UPDATE questions
+                            SET position = position + ?
+                            WHERE id = ?
+                            """,
+                            (offset, other_id),
+                        )
+
+                connection.execute(
                     """
                     UPDATE questions
-                    SET title = ?, text = ?, image = ?
+                    SET position = ?, title = ?, text = ?, image = ?
                     WHERE id = ?
                     """,
-                    (question.title, question.text, question.image, question_id),
+                    (
+                        new_position,
+                        question.title,
+                        question.text,
+                        question.image,
+                        question_id,
+                    ),
                 )
-
-                if cursor.rowcount == 0:
-                    return False
 
                 connection.execute(
                     "DELETE FROM possible_answers WHERE question_id = ?",
@@ -155,6 +218,7 @@ class QuestionRepository:
 
         return True
 
+    
     def delete(self, question_id):
         with closing(sqlite3.connect(self.path)) as connection:
             connection.execute("PRAGMA foreign_keys = ON")

@@ -10,10 +10,13 @@ from pathlib import Path
 
 from hash import HashGen
 
+import os
+
 def create_routes(repository,answer_repository,participation_repository,jwt_service,):
     """Classe de gestion des routes de l'API
     """
     app = Blueprint("quiz", __name__)
+    ADMIN_PASS = os.environ["JWT_SECRET"]
 
     ### GET
     @app.route('/')
@@ -34,6 +37,10 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
         if question is None:
             return {"error": "Question introuvable"}, 404
 
+        question["possibleAnswers"] = [
+            possible_answer_to_json(answer)
+            for answer in answer_repository.get_by_question_id(question["id"])
+        ]
         return question, 200
 
     @app.route('/questions', methods=['GET'])
@@ -48,6 +55,10 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
         if question is None:
             return {"error": "Question introuvable"}, 404
 
+        question["possibleAnswers"] = [
+            possible_answer_to_json(answer)
+            for answer in answer_repository.get_by_question_id(question["id"])
+        ]
         return question, 200
     
 
@@ -55,14 +66,16 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
     @app.route("/login", methods=["POST"])
     def post_login():
         payload = request.get_json(silent=True)
-        
-        user = payload.get("user")
+    
         password = payload.get("password")
         hashed_pass = HashGen(password)
 
-        token = jwt_service.build({"user": user, "password": hashed_pass})
+        if not isinstance(password, str) or password != ADMIN_PASS:
+            return {"error": "Mot de passe erroné"}, 401
+        
+        token = jwt_service.build({"password": hashed_pass})
 
-        return {"size": 0, "credentials": [user, hashed_pass], "token": token}, 200
+        return {"size": 0, "credentials": [hashed_pass], "token": token}, 200
 
     @app.route("/questions", methods=["POST"])
     @jwt_service.required
