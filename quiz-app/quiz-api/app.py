@@ -32,6 +32,10 @@ jwt_service = JWToken()
 database_path = Path(__file__).with_name("database")
 
 repository = QuestionRepository(database_path)
+
+if not database_path.exists():
+    repository.rebuild()
+    
 answer_repository = PossibleAnswerRepository(database_path)
 participation_repository = ParticipationRepository(database_path)
 
