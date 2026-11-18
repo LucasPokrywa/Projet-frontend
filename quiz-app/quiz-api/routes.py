@@ -55,6 +55,26 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
     app = Blueprint("quiz", __name__)
     ADMIN_PASS = os.environ["JWT_SECRET"]
 
+    @app.after_request
+    def configure_cache(response):
+        """ Configuration du cache de l'API
+        """
+        question_routes = {
+            "quiz.get_quiz_by_id",
+            "quiz.get_quiz_by_position",
+        }
+
+        if (
+            request.method in ("GET", "HEAD")
+            and request.endpoint in question_routes
+            and response.status_code == 200
+        ):
+            response.headers["Cache-Control"] = "public, max-age=30"
+        else:
+            response.headers["Cache-Control"] = "no-store"
+
+        return response
+
     ### GET
     @app.route('/')
     def index():
