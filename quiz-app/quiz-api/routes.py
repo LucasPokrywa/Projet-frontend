@@ -522,14 +522,7 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
           '500':
             description: Fichier SQL inaccessible ou échec de l'exécution du script.
         """
-        sql = Path(__file__).with_name("database.sql").read_text(
-            encoding="utf-8"
-        )
-
-        with closing(sqlite3.connect(repository.path)) as connection:
-            connection.execute("PRAGMA foreign_keys = ON")
-            connection.executescript(sql)
-
+        repository.rebuild()
         return "Ok", 200
     
     ### PUT 

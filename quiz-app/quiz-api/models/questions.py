@@ -1,3 +1,4 @@
+from pathlib import Path
 import sqlite3
 from contextlib import closing
 import json
@@ -325,3 +326,11 @@ class QuestionRepository:
             return connection.execute(
                 "SELECT COUNT(*) FROM questions"
             ).fetchone()[0]
+
+    def rebuild(self):
+        sql_path = Path(__file__).resolve().parent.parent / "database.sql"
+        sql = sql_path.read_text(encoding="utf-8")
+
+        with closing(sqlite3.connect(self.path)) as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.executescript(sql)
