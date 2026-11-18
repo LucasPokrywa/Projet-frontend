@@ -116,14 +116,25 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
             schema:
               $ref: '#/definitions/Question'
           '400':
-            $ref: '#/responses/InvalidInput'
+            description: Paramètre position absent ou différent d'un entier positif.
+            schema:
+              $ref: '#/definitions/ValidationError'
           '404':
             $ref: '#/responses/QuestionNotFound'
         """
+        if "position" not in request.args:
+            return {
+                "errorCode": "VALIDATION_ERROR",
+                "errorDetails": "Le paramètre position est obligatoire",
+            }, 400
+
         position = request.args.get("position", type=int)
 
         if position is None or position < 1:
-            return {"error": "Une position entière positive est attendue"}, 400
+            return {
+                "errorCode": "VALIDATION_ERROR",
+                "errorDetails": "Le paramètre position doit être un entier positif",
+            }, 400
 
         question = repository.get_by_position(position)
 
@@ -146,6 +157,8 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
         - Authentification
         consumes:
         - application/json
+        description: Valide le corps JSON et le mot de passe, puis vérifie le mot de passe administrateur
+          avant de créer le jeton JWT.
         parameters:
         - name: body
           in: body
@@ -158,6 +171,7 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
               password:
                 type: string
                 format: password
+                minLength: 1
                 description: Mot de passe administrateur configuré sur le serveur.
         responses:
           '200':
@@ -180,21 +194,49 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
                 token:
                   type: string
                   description: Jeton JWT signé avec une date d'expiration.
+          '400':
+            description: JSON invalide ou mot de passe absent, vide ou de type incorrect.
+            schema:
+              $ref: '#/definitions/ValidationError'
           '401':
             description: Mot de passe erroné.
             schema:
               $ref: '#/definitions/Error'
           '500':
-            description: Le code actuel échoue si le corps JSON ou le mot de passe est absent ou de type incorrect.
+            description: Erreur inattendue du serveur lors de la création du jeton.
         """
         payload = request.get_json(silent=True)
-    
-        password = payload.get("password")
-        hashed_pass = HashGen(password)
 
-        if not isinstance(password, str) or password != ADMIN_PASS:
+        if not isinstance(payload, dict):
+            return {
+                "errorCode": "VALIDATION_ERROR",
+                "errorDetails": "Un objet JSON est attendu",
+            }, 400
+
+        if "password" not in payload:
+            return {
+                "errorCode": "VALIDATION_ERROR",
+                "errorDetails": "Le champ password est obligatoire",
+            }, 400
+
+        password = payload["password"]
+
+        if not isinstance(password, str):
+            return {
+                "errorCode": "VALIDATION_ERROR",
+                "errorDetails": "Le champ password doit être une chaîne",
+            }, 400
+
+        if not password:
+            return {
+                "errorCode": "VALIDATION_ERROR",
+                "errorDetails": "Le mot de passe ne peut pas être vide",
+            }, 400
+
+        if password != ADMIN_PASS:
             return {"error": "Mot de passe erroné"}, 401
-        
+
+        hashed_pass = HashGen(password)
         token = jwt_service.build({"password": hashed_pass})
 
         return {"size": 0, "credentials": [hashed_pass], "token": token}, 200
@@ -210,8 +252,10 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
         - BearerAuth: []
         consumes:
         - application/json
-        description: Insère la question à la position demandée et décale les questions suivantes. Enregistre ensuite
-          les choix.
+        description: Valide les champs, puis enregistre la question et ses choix dans une même transaction.
+          Insère la question à la position demandée et décale les questions suivantes.
+          Le titre doit contenir un caractère autre qu'un espace. La position doit être un entier positif.
+          Chaque choix doit contenir text de type chaîne et isCorrect de type booléen.
         parameters:
         - name: body
           in: body
@@ -224,28 +268,74 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
             schema:
               $ref: '#/definitions/QuestionCreated'
           '400':
-            $ref: '#/responses/InvalidInput'
+            description: JSON invalide, champ manquant, titre vide ou type de champ incorrect.
+            schema:
+              $ref: '#/definitions/ValidationError'
           '401':
             $ref: '#/responses/Unauthorized'
           '500':
-            description: Erreur d'insertion ou choix absents ou mal formés. La question peut déjà avoir été enregistrée.
+            description: Erreur inattendue du serveur. La transaction annule la création et les décalages.
         """
         data = request.get_json(silent=True)
 
 
         if not isinstance(data, dict):
-            return {"error": "Un objet JSON est attendu"}, 400
-        try:
-            question = question_from_json(data)
-        except KeyError as exc:
-            return {"error": f"Champ manquant : {exc.args[0]}"}, 400
+            return {
+                "errorCode": "VALIDATION_ERROR",
+                "errorDetails": "Un objet JSON est attendu",
+            }, 400
 
-        question_id = repository.insert(question)
+        for field in ("position", "title", "text", "image", "possibleAnswers"):
+            if field not in data:
+                return {
+                    "errorCode": "VALIDATION_ERROR",
+                    "errorDetails": f"Le champ {field} est obligatoire",
+                }, 400
 
-        for answer_data in data["possibleAnswers"]:
-            answer = possible_answer_from_json(answer_data,question_id=question_id,)
-            answer_repository.insert(question_id, answer)
+        if type(data["position"]) is not int or data["position"] < 1:
+            return {
+                "errorCode": "VALIDATION_ERROR",
+                "errorDetails": "Le champ position doit être un entier positif",
+            }, 400
 
+        for field in ("title", "text", "image"):
+            if not isinstance(data[field], str):
+                return {
+                    "errorCode": "VALIDATION_ERROR",
+                    "errorDetails": f"Le champ {field} doit être une chaîne",
+                }, 400
+
+        if not data["title"].strip():
+            return {
+                "errorCode": "VALIDATION_ERROR",
+                "errorDetails": "Le titre de la question ne peut pas être vide",
+            }, 400
+
+        if not isinstance(data["possibleAnswers"], list):
+            return {
+                "errorCode": "VALIDATION_ERROR",
+                "errorDetails": "Le champ possibleAnswers doit être une liste",
+            }, 400
+
+        for index, answer in enumerate(data["possibleAnswers"]):
+            if not isinstance(answer, dict):
+                return {
+                    "errorCode": "VALIDATION_ERROR",
+                    "errorDetails": f"possibleAnswers[{index}] doit être un objet JSON",
+                }, 400
+            if not isinstance(answer.get("text"), str):
+                return {
+                    "errorCode": "VALIDATION_ERROR",
+                    "errorDetails": f"possibleAnswers[{index}].text doit être une chaîne",
+                }, 400
+            if not isinstance(answer.get("isCorrect"), bool):
+                return {
+                    "errorCode": "VALIDATION_ERROR",
+                    "errorDetails": f"possibleAnswers[{index}].isCorrect doit être un booléen",
+                }, 400
+
+        question = question_from_json(data)
+        question_id = repository.insert(question, data["possibleAnswers"])
 
         response = question_to_json(question)
         response["id"] = question_id

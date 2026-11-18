@@ -23,6 +23,17 @@ tags:
   - name: Participations
   - name: Administration
 definitions:
+  ValidationError:
+    type: object
+    required: [errorCode, errorDetails]
+    properties:
+      errorCode:
+        type: string
+        enum: [VALIDATION_ERROR]
+        example: VALIDATION_ERROR
+      errorDetails:
+        type: string
+        example: Le titre de la question ne peut pas être vide
   Error:
     type: object
     required: [error]

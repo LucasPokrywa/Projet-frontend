@@ -32,8 +32,9 @@ class QuestionRepository:
     def __init__(self, path):
         self.path = path
 
-    def insert(self, question):
+    def insert(self, question, answers=None):
         with closing(sqlite3.connect(self.path)) as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
             with connection:
                 connection.execute("BEGIN IMMEDIATE")
 
@@ -60,6 +61,18 @@ class QuestionRepository:
                     (question.position, question.title, question.text, question.image),
                 )
                 question_id = cursor.lastrowid
+
+                if answers is not None:
+                    connection.executemany(
+                        """
+                        INSERT INTO possible_answers (question_id, text, is_correct)
+                        VALUES (?, ?, ?)
+                        """,
+                        [
+                            (question_id, answer["text"], int(answer["isCorrect"]))
+                            for answer in answers
+                        ],
+                    )
 
         return question_id
 
