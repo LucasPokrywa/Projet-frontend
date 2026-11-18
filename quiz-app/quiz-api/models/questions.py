@@ -77,6 +77,40 @@ class QuestionRepository:
         return question_id
 
     
+    def add_possible_answers(self, question_id, answers):
+        with closing(sqlite3.connect(self.path)) as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+
+            with connection:
+                connection.execute("BEGIN IMMEDIATE")
+                question = connection.execute(
+                    "SELECT id FROM questions WHERE id = ?",
+                    (question_id,),
+                ).fetchone()
+
+                if question is None:
+                    return None
+
+                connection.executemany(
+                    """
+                    INSERT INTO possible_answers (question_id, text, is_correct)
+                    VALUES (?, ?, ?)
+                    """,
+                    [
+                        (question_id, answer["text"], int(answer["isCorrect"]))
+                        for answer in answers
+                    ],
+                )
+                rows = connection.execute(
+                    """
+                    SELECT text, is_correct FROM possible_answers
+                    WHERE question_id = ? ORDER BY id
+                    """,
+                    (question_id,),
+                ).fetchall()
+
+        return [{"text": text, "isCorrect": bool(correct)} for text, correct in rows]
+
     def get_byid(self, question_id):
         with closing(sqlite3.connect(self.path)) as connection:
             connection.row_factory = sqlite3.Row

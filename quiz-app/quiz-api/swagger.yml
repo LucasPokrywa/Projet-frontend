@@ -61,6 +61,8 @@ definitions:
         example: 1
       title:
         type: string
+        minLength: 1
+        pattern: '\S'
         example: Histoire
       text:
         type: string
@@ -114,7 +116,7 @@ responses:
   InvalidInput:
     description: Objet JSON, champ obligatoire ou paramètre invalide.
     schema:
-      $ref: '#/definitions/Error'
+      $ref: '#/definitions/ValidationError'
   Unauthorized:
     description: Jeton absent, invalide ou expiré.
     schema:

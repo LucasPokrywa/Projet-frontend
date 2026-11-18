@@ -12,6 +12,43 @@ from hash import HashGen
 
 import os
 
+
+def validate_possible_answers(answers):
+    if not isinstance(answers, list):
+        return "Le champ possibleAnswers doit être une liste"
+
+    for index, answer in enumerate(answers):
+        if not isinstance(answer, dict):
+            return f"possibleAnswers[{index}] doit être un objet JSON"
+        if not isinstance(answer.get("text"), str):
+            return f"possibleAnswers[{index}].text doit être une chaîne"
+        if not isinstance(answer.get("isCorrect"), bool):
+            return f"possibleAnswers[{index}].isCorrect doit être un booléen"
+
+    return None
+
+
+def validate_question(data):
+    if not isinstance(data, dict):
+        return "Un objet JSON est attendu"
+
+    for field in ("position", "title", "text", "image", "possibleAnswers"):
+        if field not in data:
+            return f"Le champ {field} est obligatoire"
+
+    if type(data["position"]) is not int or data["position"] < 1:
+        return "Le champ position doit être un entier positif"
+
+    for field in ("title", "text", "image"):
+        if not isinstance(data[field], str):
+            return f"Le champ {field} doit être une chaîne"
+
+    if not data["title"].strip():
+        return "Le titre de la question ne peut pas être vide"
+
+    return validate_possible_answers(data["possibleAnswers"])
+
+
 def create_routes(repository,answer_repository,participation_repository,jwt_service,):
     """Classe de gestion des routes de l'API
     """
@@ -252,10 +289,10 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
         - BearerAuth: []
         consumes:
         - application/json
-        description: Valide les champs, puis enregistre la question et ses choix dans une même transaction.
-          Insère la question à la position demandée et décale les questions suivantes.
-          Le titre doit contenir un caractère autre qu'un espace. La position doit être un entier positif.
-          Chaque choix doit contenir text de type chaîne et isCorrect de type booléen.
+        description: Valide les champs, puis enregistre la question et ses choix dans une même transaction. Insère
+          la question à la position demandée et décale les questions suivantes. Le titre doit contenir un caractère
+          autre qu'un espace. La position doit être un entier positif. Chaque choix doit contenir text de type
+          chaîne et isCorrect de type booléen.
         parameters:
         - name: body
           in: body
@@ -268,71 +305,17 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
             schema:
               $ref: '#/definitions/QuestionCreated'
           '400':
-            description: JSON invalide, champ manquant, titre vide ou type de champ incorrect.
-            schema:
-              $ref: '#/definitions/ValidationError'
+            $ref: '#/responses/InvalidInput'
           '401':
             $ref: '#/responses/Unauthorized'
           '500':
             description: Erreur inattendue du serveur. La transaction annule la création et les décalages.
         """
         data = request.get_json(silent=True)
+        error = validate_question(data)
 
-
-        if not isinstance(data, dict):
-            return {
-                "errorCode": "VALIDATION_ERROR",
-                "errorDetails": "Un objet JSON est attendu",
-            }, 400
-
-        for field in ("position", "title", "text", "image", "possibleAnswers"):
-            if field not in data:
-                return {
-                    "errorCode": "VALIDATION_ERROR",
-                    "errorDetails": f"Le champ {field} est obligatoire",
-                }, 400
-
-        if type(data["position"]) is not int or data["position"] < 1:
-            return {
-                "errorCode": "VALIDATION_ERROR",
-                "errorDetails": "Le champ position doit être un entier positif",
-            }, 400
-
-        for field in ("title", "text", "image"):
-            if not isinstance(data[field], str):
-                return {
-                    "errorCode": "VALIDATION_ERROR",
-                    "errorDetails": f"Le champ {field} doit être une chaîne",
-                }, 400
-
-        if not data["title"].strip():
-            return {
-                "errorCode": "VALIDATION_ERROR",
-                "errorDetails": "Le titre de la question ne peut pas être vide",
-            }, 400
-
-        if not isinstance(data["possibleAnswers"], list):
-            return {
-                "errorCode": "VALIDATION_ERROR",
-                "errorDetails": "Le champ possibleAnswers doit être une liste",
-            }, 400
-
-        for index, answer in enumerate(data["possibleAnswers"]):
-            if not isinstance(answer, dict):
-                return {
-                    "errorCode": "VALIDATION_ERROR",
-                    "errorDetails": f"possibleAnswers[{index}] doit être un objet JSON",
-                }, 400
-            if not isinstance(answer.get("text"), str):
-                return {
-                    "errorCode": "VALIDATION_ERROR",
-                    "errorDetails": f"possibleAnswers[{index}].text doit être une chaîne",
-                }, 400
-            if not isinstance(answer.get("isCorrect"), bool):
-                return {
-                    "errorCode": "VALIDATION_ERROR",
-                    "errorDetails": f"possibleAnswers[{index}].isCorrect doit être un booléen",
-                }, 400
+        if error:
+            return {"errorCode": "VALIDATION_ERROR", "errorDetails": error}, 400
 
         question = question_from_json(data)
         question_id = repository.insert(question, data["possibleAnswers"])
@@ -342,14 +325,16 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
         return response, 200
 
 
+
     @app.route("/questions/<int:question_id>/answers", methods=["POST"])
+    @jwt_service.required
     def add_possible_answers(question_id):
         """Ajouter des choix à une question.
         ---
         tags:
         - Questions
-        description: Ajoute les choix transmis. La méthode QuestionRepository.add_possible_answers appelée par
-          cette route est actuellement absente du dépôt.
+        description: Valide et ajoute les choix dans une transaction, puis renvoie tous les choix par identifiant
+          croissant.
         consumes:
         - application/json
         parameters:
@@ -373,7 +358,7 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
                   $ref: '#/definitions/PossibleAnswer'
         responses:
           '200':
-            description: Question et liste des choix après ajout, lorsque la méthode du dépôt est disponible.
+            description: Question et liste complète des choix après ajout.
             schema:
               type: object
               required:
@@ -391,17 +376,37 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
           '404':
             $ref: '#/responses/QuestionNotFound'
           '500':
-            description: Méthode add_possible_answers absente du dépôt actuel.
+            description: Erreur inattendue du serveur. Les ajouts de cette opération sont annulés.
+          '401':
+            $ref: '#/responses/Unauthorized'
+        security:
+        - BearerAuth: []
         """
         data = request.get_json(silent=True)
 
         if not isinstance(data, dict):
-            return {"error": "Un objet JSON est attendu"}, 400
+            return {
+                "errorCode": "VALIDATION_ERROR",
+                "errorDetails": "Un objet JSON est attendu",
+            }, 400
 
-        answers = data.get("possibleAnswers")
+        if "possibleAnswers" not in data:
+            return {
+                "errorCode": "VALIDATION_ERROR",
+                "errorDetails": "Le champ possibleAnswers est obligatoire",
+            }, 400
 
-        if not isinstance(answers, list) or not answers:
-            return {"error": "possibleAnswers doit être une liste non vide"}, 400
+        answers = data["possibleAnswers"]
+        error = validate_possible_answers(answers)
+
+        if error:
+            return {"errorCode": "VALIDATION_ERROR", "errorDetails": error}, 400
+
+        if not answers:
+            return {
+                "errorCode": "VALIDATION_ERROR",
+                "errorDetails": "Le champ possibleAnswers doit contenir au moins un choix",
+            }, 400
 
         updated_answers = repository.add_possible_answers(question_id, answers)
 
@@ -409,6 +414,7 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
             return {"error": "Question introuvable"}, 404
 
         return {"id": question_id, "possibleAnswers": updated_answers}, 200
+
 
     @app.route("/participations", methods=["POST"])
     def post_participation():
@@ -419,7 +425,8 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
         consumes:
         - application/json
         description: Les réponses suivent les questions par position croissante. Chaque entier désigne un choix
-          à partir de 1, les choix étant classés par identifiant croissant. Le serveur calcule le score.
+          à partir de 1, les choix étant classés par identifiant croissant. Le serveur calcule le score. playerName
+          doit contenir un caractère autre qu'un espace.
         parameters:
         - name: body
           in: body
@@ -433,6 +440,8 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
               playerName:
                 type: string
                 example: Lucas
+                minLength: 1
+                pattern: \S
               answers:
                 type: array
                 items:
@@ -448,28 +457,45 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
             schema:
               $ref: '#/definitions/Participation'
           '400':
-            description: Nom ou réponses invalides, nombre de réponses incorrect ou numéro de choix invalide.
-            schema:
-              $ref: '#/definitions/Error'
+            $ref: '#/responses/InvalidInput'
         """
         data = request.get_json(silent=True)
 
-        if (
-            not isinstance(data, dict)
-            or not isinstance(data.get("playerName"), str)
-            or not isinstance(data.get("answers"), list)
-        ):
-            return {"error": "playerName et answers sont obligatoires"}, 400
+        if not isinstance(data, dict):
+            return {
+                "errorCode": "VALIDATION_ERROR",
+                "errorDetails": "Un objet JSON est attendu",
+            }, 400
+
+        for field in ("playerName", "answers"):
+            if field not in data:
+                return {
+                    "errorCode": "VALIDATION_ERROR",
+                    "errorDetails": f"Le champ {field} est obligatoire",
+                }, 400
+
+        if not isinstance(data["playerName"], str) or not data["playerName"].strip():
+            return {
+                "errorCode": "VALIDATION_ERROR",
+                "errorDetails": "Le champ playerName doit être une chaîne non vide",
+            }, 400
+
+        if not isinstance(data["answers"], list):
+            return {
+                "errorCode": "VALIDATION_ERROR",
+                "errorDetails": "Le champ answers doit être une liste",
+            }, 400
 
         try:
             score = participation_repository.calculate_score(data["answers"])
         except ValueError as error:
-            return {"error": str(error)}, 400
+            return {"errorCode": "VALIDATION_ERROR", "errorDetails": str(error)}, 400
 
         participation = Participation(data["playerName"], score)
         participation_repository.insert(participation)
 
         return {"playerName": data["playerName"], "score": score}, 200
+
 
 
     @app.route("/rebuild-db", methods=["POST"])
@@ -520,7 +546,8 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
         consumes:
         - application/json
         description: Remplace les champs et tous les choix. Une position modifiée décale les questions intermédiaires.
-          La position attendue est comprise entre 1 et la position maximale actuelle.
+          La position attendue est comprise entre 1 et la position maximale actuelle. Le titre doit contenir un
+          caractère autre qu'un espace. Les champs et les choix sont validés avant toute écriture.
         parameters:
         - name: question_id
           in: path
@@ -542,29 +569,30 @@ def create_routes(repository,answer_repository,participation_repository,jwt_serv
           '404':
             $ref: '#/responses/QuestionNotFound'
           '500':
-            description: Le code actuel laisse remonter ValueError si la position est hors limites ou de type
-              incorrect.
+            description: Erreur inattendue du serveur. La transaction annule les modifications.
         """
         data = request.get_json(silent=True)
+        error = validate_question(data)
 
-        if not isinstance(data, dict):
-            return {"error": "Un objet JSON est attendu"}, 400
+        if error:
+            return {"errorCode": "VALIDATION_ERROR", "errorDetails": error}, 400
+
+        question = question_from_json(data)
+        answers = [
+            possible_answer_from_json(item, question_id)
+            for item in data["possibleAnswers"]
+        ]
 
         try:
-            question = question_from_json(data)
-            answers = [
-                possible_answer_from_json(item, question_id)
-                for item in data["possibleAnswers"]
-            ]
-        except KeyError as exc:
-            return {"error": f"Champ manquant : {exc.args[0]}"}, 400
-
-        updated = repository.update(question_id, question, answers)
+            updated = repository.update(question_id, question, answers)
+        except ValueError as error:
+            return {"errorCode": "VALIDATION_ERROR", "errorDetails": str(error)}, 400
 
         if not updated:
             return {"error": "Question introuvable"}, 404
 
         return "", 204
+
 
     ### DELETE
 
