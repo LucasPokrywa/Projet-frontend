@@ -1,11 +1,9 @@
 import jwt
 import os
-from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from flask import request
 
-load_dotenv()
 
 class JwtError(Exception):
     """Exception raised for jwt errors in the quizz app

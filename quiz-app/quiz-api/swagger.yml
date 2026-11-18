@@ -1,0 +1,114 @@
+swagger: '2.0'
+info:
+  title: API Quiz
+  version: '1.0'
+  description: >-
+    Gestion des questions, des choix et des participations au quiz.
+    Pour les opérations protégées, utiliser Authorize avec la valeur
+    Bearer suivie du jeton obtenu via POST /login.
+basePath: /
+produces:
+  - application/json
+securityDefinitions:
+  BearerAuth:
+    type: apiKey
+    in: header
+    name: Authorization
+    description: 'Saisir Bearer suivi du JWT, par exemple Bearer eyJ...'
+tags:
+  - name: Accueil
+  - name: Quiz
+  - name: Authentification
+  - name: Questions
+  - name: Participations
+  - name: Administration
+definitions:
+  Error:
+    type: object
+    required: [error]
+    properties:
+      error:
+        type: string
+        example: Question introuvable
+  PossibleAnswer:
+    type: object
+    required: [text, isCorrect]
+    properties:
+      text:
+        type: string
+        example: Blanc
+      isCorrect:
+        type: boolean
+        example: true
+  QuestionFields:
+    type: object
+    required: [position, title, text, image]
+    properties:
+      position:
+        type: integer
+        minimum: 1
+        example: 1
+      title:
+        type: string
+        example: Histoire
+      text:
+        type: string
+        example: Quelle est la couleur du cheval blanc d'Henri IV ?
+      image:
+        type: string
+        description: Contenu de l'image fourni par le client.
+        example: ''
+  QuestionInput:
+    allOf:
+      - $ref: '#/definitions/QuestionFields'
+      - type: object
+        required: [possibleAnswers]
+        properties:
+          possibleAnswers:
+            type: array
+            items:
+              $ref: '#/definitions/PossibleAnswer'
+  QuestionCreated:
+    allOf:
+      - $ref: '#/definitions/QuestionFields'
+      - type: object
+        required: [id]
+        properties:
+          id:
+            type: integer
+            example: 1
+  Question:
+    allOf:
+      - $ref: '#/definitions/QuestionCreated'
+      - type: object
+        required: [possibleAnswers]
+        properties:
+          possibleAnswers:
+            type: array
+            description: Choix classés par identifiant croissant.
+            items:
+              $ref: '#/definitions/PossibleAnswer'
+  Participation:
+    type: object
+    required: [playerName, score]
+    properties:
+      playerName:
+        type: string
+        example: Lucas
+      score:
+        type: integer
+        minimum: 0
+        example: 3
+responses:
+  InvalidInput:
+    description: Objet JSON, champ obligatoire ou paramètre invalide.
+    schema:
+      $ref: '#/definitions/Error'
+  Unauthorized:
+    description: Jeton absent, invalide ou expiré.
+    schema:
+      $ref: '#/definitions/Error'
+  QuestionNotFound:
+    description: Question introuvable.
+    schema:
+      $ref: '#/definitions/Error'
